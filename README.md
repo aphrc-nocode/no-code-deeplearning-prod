@@ -1,4 +1,4 @@
-# Multi-Task Deep Learning API Service
+# No-Code Deep Learning API Service
 
 This project provides a production-ready, scalable REST API for fine-tuning and running inference on deep learning models across multiple tasks, including Object Detection, Image Classification, and Image Segmentation.
 
