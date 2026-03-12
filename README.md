@@ -1,6 +1,6 @@
-# Multi-Task Low-Code DL Platform
+# No-code deeplearning devops
 
-This project provides a production-ready, scalable web platform for fine-tuning deep learning models for multiple tasks, including Object Detection, Image Classification, and Image Segmentation.
+This repo provides a production-ready, scalable pipeline for fine-tuning deeplearning models for multiple tasks, including Object Detection, Image Classification, and Image Segmentation.
 
 The system is built on a modern, decoupled architecture:
 * **Frontend:** An **R Shiny** application (`ui.R`, `server.R`) provides a low-code UI for managing data and experiments.
