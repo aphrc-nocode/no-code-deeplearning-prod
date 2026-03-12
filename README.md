@@ -1,6 +1,6 @@
-# Multi-Task Deep Learning API Service
+# No-code deeplearning devops
 
-This project provides a production-ready, scalable REST API for fine-tuning and running inference on deep learning models across multiple tasks, including Object Detection, Image Classification, and Image Segmentation.
+This repo provides a production-ready, scalable pipeline for fine-tuning deeplearning models for multiple tasks, including Object Detection, Image Classification, and Image Segmentation.
 
 This service acts as an independent headless backend, fully decoupled from any specific front-end application. It is designed to be consumed by client applications, dashboards, or automation scripts.
 
@@ -41,7 +41,23 @@ no-code-deeplearning-prod/
 
 ## Setup and Installation
 
-### 1. Start Infrastructure (Docker Compose - Recommended)
+### 1. Environment Setup
+It is highly recommended to use a virtual environment. This project requires **Python 3.9 or higher**.
+
+```bash
+python3 -m venv .venv
+source venv/bin/activate
+```
+
+### 2. Install Python Dependencies
+
+Install all required packages:
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Start Infrastructure (Docker Compose - Recommended)
 
 This system is containerized and requires 3 core background services (Nginx Proxy, FastAPI, Redis) and 4 dedicated GPU Celery Workers.
 
@@ -53,7 +69,7 @@ docker-compose up -d --build
 
 You can view the auto-generated Swagger API documentation at `http://127.0.0.1:8000/docs` (or via your NGINX proxy domain). Use this interactive documentation to explore the available endpoints.
 
-### 2. Start Infrastructure (Local / Manual)
+### 4. Start Infrastructure (Manual)
 
 If you prefer to run the services locally for development instead of using Docker, you will need multiple terminal windows.
 
@@ -73,18 +89,20 @@ Ensure your virtual environment is activated in each Python terminal for the fol
 
 **Step A: Start Redis**
 ```bash
+sudo apt-get update
+sudo apt-get install redis-server -y
 redis-server
 ```
 
 **Step B: Start the FastAPI Server**
 ```bash
-uvicorn fastapi_app:app --host 127.0.0.1 --port 8000 --reload
+uvicorn fastapi_app:app --reload --port 8000 --host 0.0.0.0
 ```
-The API documentation will be available at `http://127.0.0.1:8000/docs`.
+The API documentation will be available at `http://127.0.0.0:8000/docs`.
 
 **Step C: Start the Celery Worker**
 ```bash
-celery -A celery_app worker --loglevel=info
+celery -A celery_app.app worker --loglevel=info -c 1
 ```
 
 ---
@@ -93,30 +111,4 @@ celery -A celery_app worker --loglevel=info
 
 The existing `docker-compose.yml` explicitly defines 4 Celery workers (`worker-0` through `worker-3`), each hard-pinned to individual physical GPUs on the host. 
 
-To run fewer or more workers, simply edit the `docker-compose.yml` file to add or remove `worker-X` services, ensuring the `device_ids` match your available host NVIDIA GPU layout.
-
----
-
-## Core API Workflows
-
-This service exposes several endpoints for managing the deep learning pipeline. Please check the `/docs` endpoint for the complete schema and interactive testing.
-
-### 1. Data Management
-- `POST /datasets/upload`: Upload zip files containing formatted datasets for specific tasks.
-- `GET /datasets/list`: Retrieve a list of registered datasets.
-
-### 2. Model Registry
-- `GET /registry`: Fetch the list of supported foundation models and their expected tasks.
-
-### 3. Training Jobs
-- `POST /jobs/submit`: Submit a new asynchronous training job to the Celery queue.
-- `GET /jobs/list`: List all historical and active training jobs.
-- `GET /metrics/{job_id}`: Stream or fetch training metrics for a specific job.
-- `POST /jobs/cancel/{job_id}`: Abort an active training task.
-
-### 4. Inference
-- `GET /checkpoints`: List available trained model checkpoints.
-- `POST /inference/{task_type}`: Submit an image for prediction using a specific trained model.
-
-### 5. System Health
-- `GET /system/health`: Monitor GPU, CPU, RAM, and Disk utilization across the host machine.
+To run fewer or more workers, simply edit the `docker-compose.yml` file to add or remove `worker-X` services, ensuring the `device_ids` match your available host NVIDIA layout.
