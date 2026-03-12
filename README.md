@@ -1,70 +1,47 @@
-# Multi-Task Low-Code DL Platform
+# Multi-Task Deep Learning API Service
 
-This project provides a production-ready, scalable web platform for fine-tuning deep learning models for multiple tasks, including Object Detection, Image Classification, and Image Segmentation.
+This project provides a production-ready, scalable REST API for fine-tuning and running inference on deep learning models across multiple tasks, including Object Detection, Image Classification, and Image Segmentation.
 
-The system is built on a modern, decoupled architecture:
-* **Frontend:** An **R Shiny** application (`ui.R`, `server.R`) provides a low-code UI for managing data and experiments.
-* **Backend API:** A **FastAPI** server (`fastapi_app.py`) handles all web requests, manages job state, and serves results.
-* **Job Queue:** **Redis** acts as a high-speed message broker to queue training jobs.
-* **Compute Workers:** **Celery** workers (`celery_app.py`) run as separate, scalable processes that consume jobs from the queue and execute the training scripts.
-* **Persistence:** A **SQLite** database (`job_store.py`) stores all job and dataset metadata.
+This service acts as an independent headless backend, fully decoupled from any specific front-end application. It is designed to be consumed by client applications, dashboards, or automation scripts.
+
+The system is built on a modern, asynchronous architecture:
+* **Backend API:** A **FastAPI** server (`fastapi_app.py`) handles all HTTP REST requests, manages job state, and serves results.
+* **Job Queue:** **Redis** acts as a high-speed message broker to queue asynchronous training and inference jobs.
+* **Compute Workers:** **Celery** workers (`celery_app.py`) run as separate, scalable processes that consume jobs from the queue and execute the heavy-lifting deep learning scripts.
+* **Persistence:** A **SQLite** database (`job_store.py`) stores all job metadata, configurations, and dataset tracking.
+
+---
 
 ## Project Structure
 
-```
-
-no-code-deeplearning/
-├── app_data/                # (Git-ignored) Default persistent storage for datasets
-├── model_outputs/           # (Git-ignored) Default storage for trained models
-├── object_detection_utils/
+```text
+no-code-deeplearning-prod/
+├── app_data/                # (Git-ignored) Default persistent storage for uploaded datasets
+├── model_outputs/           # (Git-ignored) Default storage for trained model weights & logs
+├── runs/                    # (Git-ignored) Training run artifacts
+├── object_detection_utils/  # Task-specific utility modules
 ├── image_classification_utils/
 ├── image_segmentation_utils/
-├── ...
-├── object_detection_train.py
+├── object_detection_train.py       # Training scripts (HuggingFace/YOLO)
 ├── image_classification_train.py
 ├── image_segmentation_train.py
-├── ...
-├── fastapi_app.py           # The API Server
-├── celery_app.py            # The Celery Worker definition
-├── job_store.py             # Database models and logic
-├── model_registry.py        # Single source of truth for supported models
-├── common_utils.py          # Shared utilities (e.g., JSONMetricsCallback)
-├── ...
-├── ui.R                     # Shiny UI definition
-├── server.R                 # Shiny server logic
-└── requirements.txt
-
+├── *_inference.py           # Inference scripts for predicting on new data
+├── fastapi_app.py           # The FastAPI Web Server Entrypoint
+├── celery_app.py            # The Celery Worker definition and task routing
+├── job_store.py             # SQLite database models and logic
+├── model_registry.py        # Central registry for supported foundation models
+├── common_utils.py          # Shared utilities (e.g., Metrics parsing)
+├── docker-compose.yml       # Production deployment configuration
+├── Dockerfile               # Container build instructions
+├── nginx.conf               # Reverse proxy configuration
+└── requirements.txt         # Python dependencies
 ```
 
 ---
 
 ## Setup and Installation
 
-### 1. Environment Setup
-It is highly recommended to use a virtual environment. This project requires **Python 3.9 or higher**.
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 2. Install Python Dependencies
-
-Install all required packages:
-
-```bash
-pip install -r requirements.txt
-```
-
-### 3. Install R Dependencies
-
-From an R console, install the necessary Shiny packages:
-
-```r
-install.packages(c("shiny", "httr2", "jsonlite", "DT", "dplyr", "shinyjs", "tidyr", "dygraphs"))
-```
-
-### 4. Start Infrastructure (Docker Compose - Recommended)
+### 1. Start Infrastructure (Docker Compose - Recommended)
 
 This system is containerized and requires 3 core background services (Nginx Proxy, FastAPI, Redis) and 4 dedicated GPU Celery Workers.
 
@@ -74,72 +51,72 @@ This system is containerized and requires 3 core background services (Nginx Prox
 docker-compose up -d --build
 ```
 
-You can view the auto-generated API documentation at `http://127.0.0.1:8000/docs` (or via your NGINX proxy domain).
+You can view the auto-generated Swagger API documentation at `http://127.0.0.1:8000/docs` (or via your NGINX proxy domain). Use this interactive documentation to explore the available endpoints.
 
-### 5. Start Infrastructure (Local / Manual)
+### 2. Start Infrastructure (Local / Manual)
 
-If you prefer to run the services locally for development instead of using Docker, you will need multiple terminal windows. Ensure your virtual environment is activated in each Python terminal.
+If you prefer to run the services locally for development instead of using Docker, you will need multiple terminal windows.
 
-**1. Start Redis**
-Ensure Redis is installed on your system.
+**Prerequisites:** 
+- Python 3.9+
+- A virtual environment is highly recommended.
+- Redis server installed on your host system.
+
+```bash
+# Setup virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Ensure your virtual environment is activated in each Python terminal for the following steps:
+
+**Step A: Start Redis**
 ```bash
 redis-server
 ```
 
-**2. Start the FastAPI Server**
+**Step B: Start the FastAPI Server**
 ```bash
 uvicorn fastapi_app:app --host 127.0.0.1 --port 8000 --reload
 ```
 The API documentation will be available at `http://127.0.0.1:8000/docs`.
 
-**3. Start the Celery Worker**
+**Step C: Start the Celery Worker**
 ```bash
 celery -A celery_app worker --loglevel=info
 ```
 
 ---
 
-## How to Use the Platform
-
-**1. Run the Shiny App:**
-Open the `ui.R` or `server.R` file in RStudio and click **"Run App"**.
-
-**2. Upload Data:**
-
-  * Go to the **"Data Management"** tab.
-  * Give your dataset a name (e.g., "oxford-pets-seg").
-  * Select the correct **"Task Type"** (this is critical).
-  * Upload your `.zip` file.
-      * **Note:** Your zip file must contain the expected data structure for that task (e.g., `train/`, `validation/` folders). For segmentation, it must also include a `metadata.json` file.
-  * Click **"Upload and Process Dataset"**. The UI will show a "processing" status and will auto-refresh the "Registered Datasets" table when complete.
-
-**3. Configure a Job:**
-
-  * Go to the **"Task Configuration"** sidebar.
-  * Select your desired task (e.g., "Image Segmentation").
-  * From the "Paths & Naming" panel, select your newly uploaded dataset from the "Select Dataset" dropdown.
-  * Select a model architecture and checkpoint from the registry.
-  * Set a `run_name` and configure all other hyperparameters.
-
-**4. Start Training:**
-
-  * Click the "Start Image Segmentation Job" button.
-  * The UI will automatically switch to the **"Live Training"** tab.
-
-**5. Monitor Training:**
-
-  * On the **"Live Training"** tab, you can watch the job status change from `queued` to `running`.
-  * You can view the **"Full Log"** in real-time (now cleaned of `tqdm` artifacts).
-  * You can view the **"Metrics Table"** as evaluation epochs complete.
-  * You can use the **"Live Metric Visualization"** dropdown to plot any metric from the table.
-
-**6. Review History & Run Inference:**
-
-  * Use the **"Training History"** tab to review, filter, and load metrics from all past jobs.
-  * Use the **"Inference"** tab to select a task, find your trained checkpoints by `run_name`, and test them on new images or audio files.
-
-## Scaling (Docker Compose)
+## Scaling Celery Workers
 
 The existing `docker-compose.yml` explicitly defines 4 Celery workers (`worker-0` through `worker-3`), each hard-pinned to individual physical GPUs on the host. 
 
-To run fewer or more workers, simply edit the `docker-compose.yml` file to add or remove `worker-X` services, ensuring the `device_ids` match your available host NVIDIA layout.
+To run fewer or more workers, simply edit the `docker-compose.yml` file to add or remove `worker-X` services, ensuring the `device_ids` match your available host NVIDIA GPU layout.
+
+---
+
+## Core API Workflows
+
+This service exposes several endpoints for managing the deep learning pipeline. Please check the `/docs` endpoint for the complete schema and interactive testing.
+
+### 1. Data Management
+- `POST /datasets/upload`: Upload zip files containing formatted datasets for specific tasks.
+- `GET /datasets/list`: Retrieve a list of registered datasets.
+
+### 2. Model Registry
+- `GET /registry`: Fetch the list of supported foundation models and their expected tasks.
+
+### 3. Training Jobs
+- `POST /jobs/submit`: Submit a new asynchronous training job to the Celery queue.
+- `GET /jobs/list`: List all historical and active training jobs.
+- `GET /metrics/{job_id}`: Stream or fetch training metrics for a specific job.
+- `POST /jobs/cancel/{job_id}`: Abort an active training task.
+
+### 4. Inference
+- `GET /checkpoints`: List available trained model checkpoints.
+- `POST /inference/{task_type}`: Submit an image for prediction using a specific trained model.
+
+### 5. System Health
+- `GET /system/health`: Monitor GPU, CPU, RAM, and Disk utilization across the host machine.
