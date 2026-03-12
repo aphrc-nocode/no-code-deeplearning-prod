@@ -1,4 +1,3 @@
-```markdown
 # Multi-Task Low-Code DL Platform
 
 This project provides a production-ready, scalable web platform for fine-tuning deep learning models for multiple tasks, including Object Detection, Image Classification, and Image Segmentation.
@@ -25,17 +24,17 @@ no-code-deeplearning/
 ├── image_classification_train.py
 ├── image_segmentation_train.py
 ├── ...
-├── fastapi\_app.py           \# The API Server
-├── celery\_app.py            \# The Celery Worker definition
-├── job\_store.py             \# Database models and logic
-├── model\_registry.py        \# Single source of truth for supported models
-├── common\_utils.py          \# Shared utilities (e.g., JSONMetricsCallback)
+├── fastapi_app.py           # The API Server
+├── celery_app.py            # The Celery Worker definition
+├── job_store.py             # Database models and logic
+├── model_registry.py        # Single source of truth for supported models
+├── common_utils.py          # Shared utilities (e.g., JSONMetricsCallback)
 ├── ...
-├── ui.R                     \# Shiny UI definition
-├── server.R                 \# Shiny server logic
+├── ui.R                     # Shiny UI definition
+├── server.R                 # Shiny server logic
 └── requirements.txt
 
-````
+```
 
 ---
 
@@ -47,9 +46,9 @@ It is highly recommended to use a virtual environment. This project requires **P
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-````
+```
 
-### 2\. Install Python Dependencies
+### 2. Install Python Dependencies
 
 Install all required packages:
 
@@ -57,7 +56,7 @@ Install all required packages:
 pip install -r requirements.txt
 ```
 
-### 3\. Install R Dependencies
+### 3. Install R Dependencies
 
 From an R console, install the necessary Shiny packages:
 
@@ -123,6 +122,3 @@ Open the `ui.R` or `server.R` file in RStudio and click **"Run App"**.
 The existing `docker-compose.yml` explicitly defines 4 Celery workers (`worker-0` through `worker-3`), each hard-pinned to individual physical GPUs on the host. 
 
 To run fewer or more workers, simply edit the `docker-compose.yml` file to add or remove `worker-X` services, ensuring the `device_ids` match your available host NVIDIA layout.
-
-```
-```
