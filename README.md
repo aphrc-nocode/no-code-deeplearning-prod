@@ -78,7 +78,6 @@ Ensure Redis is installed on your system.
 sudo apt-get update
 sudo apt-get install redis-server -y
 redis-server
-redis-cli ping
 ```
 
 **2. Start the FastAPI Server**
@@ -89,7 +88,7 @@ The API documentation will be available at `http://127.0.0.0:8000/docs`.
 
 **3. Start the Celery Worker**
 ```bash
-celery -A celery_app worker --loglevel=info
+celery -A celery_app.app worker --loglevel=info -c 1
 ```
 
 ---
