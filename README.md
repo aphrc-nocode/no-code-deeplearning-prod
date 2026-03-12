@@ -64,7 +64,7 @@ From an R console, install the necessary Shiny packages:
 install.packages(c("shiny", "httr2", "jsonlite", "DT", "dplyr", "shinyjs", "tidyr", "dygraphs"))
 ```
 
-### 4. Start Infrastructure (Docker Compose)
+### 4. Start Infrastructure (Docker Compose - Recommended)
 
 This system is containerized and requires 3 core background services (Nginx Proxy, FastAPI, Redis) and 4 dedicated GPU Celery Workers.
 
@@ -75,6 +75,27 @@ docker-compose up -d --build
 ```
 
 You can view the auto-generated API documentation at `http://127.0.0.1:8000/docs` (or via your NGINX proxy domain).
+
+### 5. Start Infrastructure (Local / Manual)
+
+If you prefer to run the services locally for development instead of using Docker, you will need multiple terminal windows. Ensure your virtual environment is activated in each Python terminal.
+
+**1. Start Redis**
+Ensure Redis is installed on your system.
+```bash
+redis-server
+```
+
+**2. Start the FastAPI Server**
+```bash
+uvicorn fastapi_app:app --host 127.0.0.1 --port 8000 --reload
+```
+The API documentation will be available at `http://127.0.0.1:8000/docs`.
+
+**3. Start the Celery Worker**
+```bash
+celery -A celery_app worker --loglevel=info
+```
 
 ---
 
