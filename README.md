@@ -44,7 +44,7 @@ no-code-deeplearning/
 It is highly recommended to use a virtual environment. This project requires **Python 3.9 or higher**.
 
 ```bash
-python3 -m venv venv
+python3 -m venv .venv
 source venv/bin/activate
 ```
 
