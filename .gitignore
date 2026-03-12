@@ -1,0 +1,11 @@
+.venv/
+.venv/*
+app_data/
+app_data/*
+model_outputs/
+model_outputs/*
+runs/
+runs/*
+*.pt
+__pycache__/
+__pycache__/*

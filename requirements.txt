@@ -1,0 +1,40 @@
+# --- Core ML/DL ---
+torch
+torchvision
+torchaudio
+accelerate
+
+# --- Hugging Face ---
+transformers
+datasets
+evaluate
+huggingface_hub
+
+# --- Task-Specific ---
+albumentations
+torchmetrics
+timm
+pycocotools
+ultralytics
+faster-coco-eval
+segmentation-models-pytorch
+
+# --- API & UI ---
+fastapi
+uvicorn[standard]
+python-multipart
+gradio
+
+# --- Utilities ---
+numpy
+pandas
+scipy
+Pillow
+wandb
+psutil
+scikit-learn
+
+# --- Job Persistence & Queuing ---
+sqlalchemy
+celery
+redis
