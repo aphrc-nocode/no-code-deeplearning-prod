@@ -10,7 +10,7 @@ from functools import partial
 import torch
 import glob
 
-from datasets import load_dataset, DatasetDict, Image
+from datasets import load_dataset, Dataset, DatasetDict, Image
 from transformers import (
     Trainer,
     TrainingArguments,
@@ -146,14 +146,15 @@ def main(args):
 
     # --- Step B: Load Dataset (Manual Scan or ImageFolder) ---
     dataset = DatasetDict()
-    
+
+    # Collected across whichever loading path runs; used later for label auto-detection.
+    all_mask_paths = []
+
     if args.is_presplit:
         # Check standard structure
         splits = ["train", "validation", "test"]
         found_splits = []
-        
-        all_mask_paths = []
-        
+
         for split in splits:
             split_dir = os.path.join(args.data_dir, split)
             if os.path.isdir(split_dir):
