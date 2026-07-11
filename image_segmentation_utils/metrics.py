@@ -2,6 +2,8 @@
 
 import evaluate
 import numpy as np
+import torch
+import torch.nn.functional as F
 from transformers import EvalPrediction
 from typing import Callable, Dict, Any
 
@@ -19,28 +21,37 @@ def create_compute_metrics_fn(num_labels: int, id2label: Dict[int, str], ignore_
         for a semantic segmentation model.
         """
         logits, labels = eval_pred.predictions, eval_pred.label_ids
-        
+
         # Models like SegFormer output a tuple.
         # The first element [0] is the segmentation map logits.
         if isinstance(logits, tuple):
             logits = logits[0]
-            
-        # (batch_size, num_classes, height, width) -> (batch_size, height, width)
-        predictions = np.argmax(logits, axis=1)
 
-        # Flatten to (batch_size * height * width)
-        pred_flat = predictions.flatten()
-        label_flat = labels.flatten()
+        labels = np.asarray(labels)
+
+        # SegFormer (and other HF models) emit logits at a reduced resolution
+        # (e.g. H/4). Upsample to the label resolution before argmax, otherwise
+        # predictions and references have different shapes and IoU is meaningless.
+        logits_t = torch.as_tensor(np.asarray(logits))
+        target_hw = tuple(labels.shape[-2:])
+        if tuple(logits_t.shape[-2:]) != target_hw:
+            logits_t = F.interpolate(
+                logits_t, size=target_hw, mode="bilinear", align_corners=False
+            )
+        predictions = logits_t.argmax(dim=1).cpu().numpy()
 
         try:
+            # mean_iou expects lists of 2D (H, W) arrays, one per image — NOT a
+            # single flattened 1D array (which makes it iterate over scalars and
+            # raises "'numpy.int64' object has no attribute 'get'").
             metrics = metric.compute(
-                predictions=pred_flat,
-                references=label_flat,
+                predictions=list(predictions),
+                references=list(labels),
                 num_labels=num_labels,
                 ignore_index=ignore_index,
                 # reduce_labels=False is critical for handling batches
                 # that don't contain every single class.
-                reduce_labels=False, 
+                reduce_labels=False,
             )
             
             # Format metrics

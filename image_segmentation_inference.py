@@ -45,8 +45,22 @@ def run_inference(model_checkpoint: str, image_path: str, output_path: str):
             model = smp.Unet(encoder_name=encoder_name, encoder_weights=None, in_channels=3, classes=num_classes)
         else:
             model = smp.UnetPlusPlus(encoder_name=encoder_name, encoder_weights=None, in_channels=3, classes=num_classes)
-            
-        model.load_state_dict(torch.load(os.path.join(model_checkpoint, "pytorch_model.bin"), map_location=device))
+
+        # The Trainer saves weights as model.safetensors by default; older runs
+        # may have pytorch_model.bin. Load whichever is present.
+        safetensors_path = os.path.join(model_checkpoint, "model.safetensors")
+        bin_path = os.path.join(model_checkpoint, "pytorch_model.bin")
+        if os.path.exists(safetensors_path):
+            from safetensors.torch import load_file
+            state_dict = load_file(safetensors_path, device="cpu")
+        elif os.path.exists(bin_path):
+            state_dict = torch.load(bin_path, map_location=device)
+        else:
+            raise FileNotFoundError(
+                f"No SMP weights found in {model_checkpoint} "
+                "(looked for model.safetensors and pytorch_model.bin)."
+            )
+        model.load_state_dict(state_dict)
         
         # SMP needs albumentations validation transform
         # SMP inference requires a predefined size, assuming 512 if not specified.
