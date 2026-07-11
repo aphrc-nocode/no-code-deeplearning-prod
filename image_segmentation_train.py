@@ -10,7 +10,7 @@ from functools import partial
 import torch
 import glob
 
-from datasets import load_dataset, DatasetDict, Image
+from datasets import load_dataset, Dataset, DatasetDict, Image
 from transformers import (
     Trainer,
     TrainingArguments,
@@ -57,8 +57,35 @@ class SmpTrainer(Trainer):
             labels = labels.squeeze(1)
             
         loss = loss_fct(logits, labels)
-        
+
         return (loss, logits) if return_outputs else loss
+
+    def prediction_step(self, model, inputs, prediction_loss_only, ignore_keys=None):
+        """
+        Custom evaluation step for SMP models.
+
+        The base Trainer calls model(**inputs), passing pixel_values= and
+        labels= as keywords, but an SMP model's forward() takes a single
+        positional image tensor. We unpack the batch and call it correctly,
+        returning (loss, logits, labels) in the shape the eval loop expects.
+        """
+        inputs = self._prepare_inputs(inputs)
+        images = inputs["pixel_values"]
+        labels = inputs.get("labels")
+
+        with torch.no_grad():
+            logits = model(images)
+            loss = None
+            if labels is not None:
+                loss_fct = nn.CrossEntropyLoss(ignore_index=255)
+                target = labels
+                if target.dim() == 4 and target.shape[1] == 1:
+                    target = target.squeeze(1)
+                loss = loss_fct(logits, target)
+
+        if prediction_loss_only:
+            return (loss, None, None)
+        return (loss, logits, labels)
 
 def get_trainer_class(model):
     """
@@ -146,14 +173,15 @@ def main(args):
 
     # --- Step B: Load Dataset (Manual Scan or ImageFolder) ---
     dataset = DatasetDict()
-    
+
+    # Collected across whichever loading path runs; used later for label auto-detection.
+    all_mask_paths = []
+
     if args.is_presplit:
         # Check standard structure
         splits = ["train", "validation", "test"]
         found_splits = []
-        
-        all_mask_paths = []
-        
+
         for split in splits:
             split_dir = os.path.join(args.data_dir, split)
             if os.path.isdir(split_dir):
@@ -331,13 +359,20 @@ def main(args):
     )
 
     trainer.train()
-    
-    # Explicitly save model and processor
+
+    # Explicitly save model and processor.
     trainer.save_model(output_dir)
-    image_processor.save_pretrained(output_dir)
 
+    if image_processor is not None:
+        # HF models have a processor; SMP (U-Net) models do not.
+        image_processor.save_pretrained(output_dir)
+    else:
+        # SMP path: the Trainer saves only the state dict (no config.json),
+        # so we write the config ourselves. Inference relies on it to detect
+        # the SMP architecture and rebuild the encoder/decoder.
+        model.config.to_json_file(os.path.join(output_dir, "config.json"))
+        print(f"Wrote SMP config.json to {output_dir}")
 
-        
     if test_dataset is not None:
         print("\n--- Evaluating on Test Set ---")
         test_metrics = trainer.evaluate(test_dataset, metric_key_prefix="test")

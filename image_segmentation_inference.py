@@ -45,8 +45,22 @@ def run_inference(model_checkpoint: str, image_path: str, output_path: str):
             model = smp.Unet(encoder_name=encoder_name, encoder_weights=None, in_channels=3, classes=num_classes)
         else:
             model = smp.UnetPlusPlus(encoder_name=encoder_name, encoder_weights=None, in_channels=3, classes=num_classes)
-            
-        model.load_state_dict(torch.load(os.path.join(model_checkpoint, "pytorch_model.bin"), map_location=device))
+
+        # The Trainer saves weights as model.safetensors by default; older runs
+        # may have pytorch_model.bin. Load whichever is present.
+        safetensors_path = os.path.join(model_checkpoint, "model.safetensors")
+        bin_path = os.path.join(model_checkpoint, "pytorch_model.bin")
+        if os.path.exists(safetensors_path):
+            from safetensors.torch import load_file
+            state_dict = load_file(safetensors_path, device="cpu")
+        elif os.path.exists(bin_path):
+            state_dict = torch.load(bin_path, map_location=device)
+        else:
+            raise FileNotFoundError(
+                f"No SMP weights found in {model_checkpoint} "
+                "(looked for model.safetensors and pytorch_model.bin)."
+            )
+        model.load_state_dict(state_dict)
         
         # SMP needs albumentations validation transform
         # SMP inference requires a predefined size, assuming 512 if not specified.
@@ -75,29 +89,34 @@ def run_inference(model_checkpoint: str, image_path: str, output_path: str):
             outputs = model(**inputs)
             logits = outputs.logits
     
-    # 3. Post-process the logits
+    # 3. Post-process the logits into a predicted segmentation map.
+    #    HF models (e.g. SegFormer) emit logits at a reduced resolution, so we
+    #    upsample to the original image size before taking the argmax. This also
+    #    guarantees the mask matches the source image dimensions for overlaying.
+    orig_w, orig_h = image.size  # PIL reports (width, height)
+    logits = torch.as_tensor(logits)
+    upsampled_logits = torch.nn.functional.interpolate(
+        logits, size=(orig_h, orig_w), mode="bilinear", align_corners=False
+    )
+    pred_seg = upsampled_logits.argmax(dim=1)[0].to("cpu").numpy().astype(np.uint8)
 
-    # 4. Create a color mask
-    # We need the color map. Let's try to get it from the model config.
-    color_map = None
-    if hasattr(model.config, "id2label"):
-        id2label = model.config.id2label
-        # Create a simple color map based on label ID
-        # We'll just generate random colors for this demo
-        palette = np.random.randint(0, 255, (len(id2label), 3), dtype=np.uint8)
-        palette[0] = [0, 0, 0] # Make background (label 0) black
-        
-        color_map = palette[pred_seg]
-        color_mask = Image.fromarray(color_map.astype(np.uint8), "RGB")
-
-    # 5. Overlay the mask on the original image
-    if color_map is not None:
-        overlay_image = Image.blend(image, color_mask, alpha=0.5)
+    # 4. Build a color mask. A fixed RNG seed keeps colors stable across runs.
+    if is_smp:
+        n_labels = num_classes
+    elif hasattr(model, "config") and getattr(model.config, "id2label", None):
+        n_labels = len(model.config.id2label)
     else:
-        # Fallback: just save the raw segmentation map (will look black/white)
-        overlay_image = Image.fromarray(pred_seg.astype(np.uint8))
+        n_labels = int(pred_seg.max()) + 1
+    n_labels = max(int(n_labels), int(pred_seg.max()) + 1, 2)
 
-    # 6. Save the final image
+    rng = np.random.default_rng(42)
+    palette = rng.integers(0, 256, size=(n_labels, 3), dtype=np.uint8)
+    palette[0] = [0, 0, 0]  # background (label 0) rendered black
+
+    color_mask = Image.fromarray(palette[pred_seg], "RGB")
+
+    # 5. Overlay the mask on the original image and save.
+    overlay_image = Image.blend(image, color_mask, alpha=0.5)
     overlay_image.save(output_path)
     print(f"Output image saved to: {output_path}")
 

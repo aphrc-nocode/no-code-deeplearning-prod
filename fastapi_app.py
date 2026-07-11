@@ -58,16 +58,32 @@ app = FastAPI(
 # --- 4. Mount the StaticFiles directory to the *new* shared path ---
 app.mount("/outputs", StaticFiles(directory=OUTPUT_DIR), name="outputs")
 
+# CORS: comma-separated origins via ALLOWED_ORIGINS (default "*" for dev).
+# Note: the browser CORS spec forbids credentials together with a "*" origin,
+# so credentials are only enabled when an explicit origin allow-list is set.
+_allowed_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
+_allow_credentials = _allowed_origins != ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_allowed_origins,
+    allow_credentials=_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # --- Security ---
-API_KEY = os.getenv("API_KEY", "aphrc-secret-key-123") # Default for dev
+# API key MUST be provided via the API_KEY env var in any shared/production
+# deployment. The insecure development fallback below is only used when unset,
+# and a loud warning is emitted so it is never silently relied upon.
+API_KEY = os.getenv("API_KEY")
+if not API_KEY:
+    API_KEY = "aphrc-secret-key-123"  # dev-only fallback
+    print(
+        "WARNING: API_KEY env var is not set — using the insecure default dev key. "
+        "Set API_KEY before exposing this service.",
+        file=sys.stderr,
+    )
 
 async def verify_api_key(x_api_key: str = Header(None)):
     """
@@ -346,7 +362,6 @@ async def start_object_detection_training(
             "--learning_rate", str(learning_rate),
             "--weight_decay", str(weight_decay_hf),
             "--gradient_accumulation_steps", str(gradient_accumulation_steps),
-            "--early_stopping_threshold", str(early_stopping_threshold),
             "--early_stopping_threshold", str(early_stopping_threshold),
             "--eval_batch_size", str(eval_batch_size),
             "--optimizer", optimizer_hf,
@@ -778,15 +793,11 @@ async def cancel_job(job_id: str):
         job_store.update_job_status(job_id, "cancelled")
         
         return {"message": f"Job {job_id} cancelled (PID {pid} terminated)", "status": "cancelled"}
-        
+
     except ProcessLookupError:
         # Process already gone
         job_store.update_job_status(job_id, "cancelled") # or failed/completed?
         return {"message": "Job process not found, marked as cancelled", "status": "cancelled"}
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to cancel job: {e}")
-
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to cancel job: {e}")
@@ -990,39 +1001,6 @@ async def run_object_detection_inference(
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
-@app.post("/inference/asr", summary="Run ASR Inference")
-async def run_asr_inference_endpoint(
-    model_checkpoint: str = Form(..., description="Path to the model checkpoint"),
-    audio: UploadFile = File(..., description="The audio file to transcribe.")
-):
-    """
-    Runs the 'asr_inference.py' script on an uploaded audio file
-    and returns the transcription as a string.
-    """
-    if not job_store.is_valid_checkpoint_path(model_checkpoint):
-        raise HTTPException(status_code=400, detail="Invalid or malicious model path")
-        
-    try:
-        input_path = os.path.join(UPLOAD_DIR, f"{uuid.uuid4()}_{audio.filename}")
-        with open(input_path, "wb") as buffer:
-            shutil.copyfileobj(audio.file, buffer)
-
-        cmd = [
-            sys.executable, "asr_inference.py",
-            "--model_checkpoint", model_checkpoint,
-            "--audio_path", input_path,
-        ]
-        
-        process = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        transcription = process.stdout.strip()
-        
-        return {"transcription": transcription}
-
-    except subprocess.CalledProcessError as e:
-        return JSONResponse(status_code=500, content={"error": "ASR inference script failed", "details": e.stderr})
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
-    
 @app.post("/inference/image-classification", summary="Run Image Classification Inference")
 async def run_image_classification_inference(
     model_checkpoint: str = Form(..., description="Path to the model checkpoint"),
@@ -1061,7 +1039,7 @@ async def run_semantic_segmentation_inference(
     image: UploadFile = File(..., description="The image to segment.")
 ):
     """
-    Runs the 'semantic_segmentation_inference.py' script on an uploaded image
+    Runs the 'image_segmentation_inference.py' script on an uploaded image
     and returns a URL to the annotated output image.
     """
     if not job_store.is_valid_checkpoint_path(model_checkpoint):
@@ -1076,7 +1054,7 @@ async def run_semantic_segmentation_inference(
         output_path = os.path.join(OUTPUT_DIR, output_filename)
 
         cmd = [
-            sys.executable, "semantic_segmentation_inference.py",
+            sys.executable, "image_segmentation_inference.py",
             "--model_checkpoint", model_checkpoint,
             "--image_path", input_path,
             "--output_path", output_path
