@@ -1,40 +1,54 @@
+# Pinned to a verified-working stack.
+#
+# Every version below was confirmed by running the full train -> evaluate ->
+# save -> inference cycle for all three tasks and both model families per task
+# (image classification, object detection via DETR and YOLO, semantic
+# segmentation via SegFormer and SMP U-Net) on Python 3.12 / CPU torch.
+#
+# Torch is pinned by version only (no +cpu local tag): on the CUDA base image in
+# the Dockerfile, PyPI serves the matching CUDA build of the same version.
+#
+# To refresh: bump a pin, re-run the smoke tests for all tasks, then commit.
+
 # --- Core ML/DL ---
-torch
-torchvision
-torchaudio
-accelerate
+torch==2.13.0
+torchvision==0.28.0
+torchaudio==2.11.0
+accelerate==1.14.0
 
 # --- Hugging Face ---
-transformers
-datasets
-evaluate
-huggingface_hub
+transformers==5.13.1
+datasets==5.0.0
+evaluate==0.4.6
+huggingface_hub==1.23.0
 
 # --- Task-Specific ---
-albumentations
-torchmetrics
-timm
-pycocotools
-ultralytics
-faster-coco-eval
-segmentation-models-pytorch
+albumentations==2.0.8
+torchmetrics==1.9.0
+timm==1.0.28
+pycocotools==2.0.11
+ultralytics==8.4.92
+faster-coco-eval==1.7.2
+segmentation-models-pytorch==0.5.0
 
-# --- API & UI ---
-fastapi
-uvicorn[standard]
-python-multipart
-gradio
+# --- API ---
+fastapi==0.139.0
+uvicorn[standard]==0.51.0
+python-multipart==0.0.32
 
 # --- Utilities ---
-numpy
-pandas
-scipy
-Pillow
-wandb
-psutil
-scikit-learn
+numpy==2.4.4
+pandas==3.0.3
+scipy==1.18.0
+Pillow==12.2.0
+psutil==7.2.2
+scikit-learn==1.9.0
 
 # --- Job Persistence & Queuing ---
-sqlalchemy
-celery
-redis
+sqlalchemy==2.0.51
+celery==5.6.3
+redis==8.0.1
+
+# Removed (2026-07): gradio and wandb — neither is imported anywhere in the
+# codebase (training sets WANDB_DISABLED=true), and gradio pulls a large,
+# unused dependency tree. Re-add with a pin if a demo UI / W&B logging is built.

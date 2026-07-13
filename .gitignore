@@ -9,3 +9,6 @@ runs/*
 *.pt
 __pycache__/
 __pycache__/*
+
+# Local dependency-verification artifact (CPU freeze); not for the repo
+.verified-freeze-cpu.txt
