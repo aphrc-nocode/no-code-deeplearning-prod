@@ -1,0 +1,19 @@
+# gitleaks configuration for no-code-transformers.
+#
+# Extends the default rule set and allowlists the single known dev-only value
+# so the secret scan can run as a blocking CI gate. Any real secret will still
+# fail the scan.
+
+title = "no-code-transformers gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Dev-only, non-production values"
+regexes = [
+  # Insecure development fallback for the API key. Real deployments set the
+  # API_KEY env var; the service warns loudly when this fallback is used.
+  # This literal is not a live secret.
+  '''aphrc-secret-key-123''',
+]

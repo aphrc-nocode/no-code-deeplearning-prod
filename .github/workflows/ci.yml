@@ -22,12 +22,10 @@ jobs:
         run: python -m compileall -q .
 
   secrets:
-    name: Secret scan (advisory)
+    name: Secret scan
     runs-on: ubuntu-latest
-    # Advisory for now: the service still carries a hardcoded dev API-key
-    # default. Once that moves fully to env config, drop continue-on-error to
-    # make this a blocking gate.
-    continue-on-error: true
+    # Blocking: the only known literal (the dev API-key fallback) is allowlisted
+    # in .gitleaks.toml, so any *new* secret fails the build.
     steps:
       - uses: actions/checkout@v4
         with:
