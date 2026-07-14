@@ -54,21 +54,21 @@ class RegisteredDataset(Base):
 def init_db():
     """Initialize the database and create tables if they don't exist."""
     Base.metadata.create_all(bind=engine)
-    
+
     # --- Database Migrations ---
-    # Since we added 'pid' later, we need to ensure it exists in old DBs.
-    # We use raw SQL for this simple migration instead of setting up Alembic.
-    with engine.connect() as conn:
+    # Since we added 'pid' later, we ensure it exists on databases created before
+    # that change. We inspect the schema rather than SELECTing (a raw-string
+    # SELECT raises ObjectNotExecutableError on SQLAlchemy 2.x) and avoid a full
+    # Alembic setup for a single column.
+    from sqlalchemy import inspect as sa_inspect, text
+    columns = [col["name"] for col in sa_inspect(engine).get_columns("jobs")]
+    if "pid" not in columns:
+        print("Migrating DB: Adding 'pid' column to 'jobs' table.")
         try:
-            # Try to select the column to see if it exists
-            conn.execute("SELECT pid FROM jobs LIMIT 1")
-        except Exception:
-            # If it fails, add the column
-            print("Migrating DB: Adding 'pid' column to 'jobs' table.")
-            try:
-                conn.execute("ALTER TABLE jobs ADD COLUMN pid INTEGER")
-            except Exception as e:
-                print(f"Migration warning: {e}")
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE jobs ADD COLUMN pid INTEGER"))
+        except Exception as e:
+            print(f"Migration warning: {e}")
 
 # --- Job Functions ---
 
@@ -351,13 +351,15 @@ def is_valid_checkpoint_path(checkpoint_path: str) -> bool:
     """
     if not checkpoint_path:
         return False
-        
+
     root_path = os.path.abspath(MODEL_OUTPUT_ROOT)
     full_path = os.path.abspath(checkpoint_path)
-    
-    if not full_path.startswith(root_path):
-        return False 
-        
+
+    # Ensure full_path is MODEL_OUTPUT_ROOT itself or strictly inside it.
+    # commonpath avoids the classic startswith() prefix bug, where a sibling
+    # like "model_outputs_evil" would pass a "model_outputs" prefix check.
+    try:
+        return os.path.commonpath([full_path, root_path]) == root_path
+    except ValueError:
+        # Raised for paths on different drives or mixed absolute/relative.
         return False
-        
-    return True

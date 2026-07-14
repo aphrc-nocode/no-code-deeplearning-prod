@@ -8,21 +8,49 @@ import random
 from transformers import AutoImageProcessor
 from typing import List, Dict, Any
 
+def mask_to_array(msk) -> np.ndarray:
+    """
+    Converts a mask entry to a 2D array of class ids.
+
+    Accepts either a decoded PIL image or the {"path", "bytes"} dict produced
+    by datasets' Image(decode=False). A mask's pixel values *are* the class
+    ids, so a palette ("P") mask must be read as raw palette indices: calling
+    .convert("L") on it would map the indices through the palette and silently
+    destroy the labels.
+    """
+    from PIL import Image as PILImage
+    import io
+
+    # Handle the undecoded {"path": ..., "bytes": ...} form.
+    if isinstance(msk, dict):
+        if msk.get("bytes") is not None:
+            msk = PILImage.open(io.BytesIO(msk["bytes"]))
+        elif msk.get("path"):
+            msk = PILImage.open(msk["path"])
+        else:
+            raise ValueError("Mask dict has neither 'bytes' nor 'path'.")
+
+    if msk.mode == "P":
+        return np.array(msk)
+    if msk.mode != "L":
+        msk = msk.convert("L")
+    return np.array(msk)
+
+
 def apply_transforms(examples: Dict[str, Any], transform: Any) -> Dict[str, Any]:
     """
     Applies albumentations augmentations to a batch of images and masks.
     This function is designed to be used with dataset.map()
-    
+
     Returns a dict with 'image' and 'mask' keys.
     """
     images = []
     masks = []
-    
+
     for img, msk in zip(examples["image"], examples["label"]):
         img = img.convert("RGB")
-        msk = msk.convert("L") # Ensure mask is single-channel
-        
-        transformed = transform(image=np.array(img), mask=np.array(msk))
+
+        transformed = transform(image=np.array(img), mask=mask_to_array(msk))
         images.append(transformed["image"])
         masks.append(transformed["mask"])
 

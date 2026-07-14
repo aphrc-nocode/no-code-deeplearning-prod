@@ -56,7 +56,7 @@ def get_train_transform(
         )
         
         transforms.append(
-            A.CoarseDropout(max_holes=8, max_height=32, max_width=32, min_holes=1, min_height=8, min_width=8, p=0.2)
+            A.CoarseDropout(num_holes_range=(1, 8), hole_height_range=(8, 32), hole_width_range=(8, 32), p=0.2)
         )
 
     # 3. Normalization & Conversion (Always Applied)

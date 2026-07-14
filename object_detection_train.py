@@ -1,7 +1,6 @@
 # object_detection_train.py
 
 import os
-import os
 # Disable WandB integration
 os.environ["WANDB_DISABLED"] = "true"
 
@@ -131,7 +130,7 @@ def main(args):
         compute_metrics=eval_compute_metrics_fn,
         train_dataset=dataset["train"],
         eval_dataset=dataset["validation"],
-        tokenizer=image_processor,
+        processing_class=image_processor,
         callbacks=[json_metrics_callback, early_stopping_callback]
     )
 
