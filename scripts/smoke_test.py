@@ -114,7 +114,13 @@ def smoke_classification(work: Path, env):
         img = next((data / "test").rglob("*.png"))
         ok = run([PY, "image_classification_inference.py",
                   "--model_checkpoint", ckpt, "--image_path", img], env)
-    return ("classification", ok and ckpt is not None)
+    if ok and ckpt:
+        # Grad-CAM explanation on the same checkpoint.
+        img = next((data / "test").rglob("*.png"))
+        ok = run([PY, "image_classification_explain.py", "--model_checkpoint", ckpt,
+                  "--image_path", img, "--output_path", work / "cls_cam.png"], env)
+        ok = ok and (work / "cls_cam.png").exists()
+    return ("classification+explain", ok and ckpt is not None)
 
 
 def smoke_detection_hf(work: Path, env):

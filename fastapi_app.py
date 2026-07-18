@@ -1033,6 +1033,56 @@ async def run_image_classification_inference(
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.post("/explain/image-classification", summary="Explain an Image Classification Prediction (Grad-CAM)")
+async def explain_image_classification(
+    model_checkpoint: str = Form(..., description="Path to the model checkpoint"),
+    image: UploadFile = File(..., description="The image to classify and explain.")
+):
+    """
+    Runs Grad-CAM on an uploaded image and returns the predicted class, its
+    confidence, and a URL to a heatmap overlay showing which regions of the
+    image drove the prediction.
+    """
+    if not job_store.is_valid_checkpoint_path(model_checkpoint):
+        raise HTTPException(status_code=400, detail="Invalid or malicious model path")
+
+    input_path = os.path.join(UPLOAD_DIR, f"{uuid.uuid4()}_{image.filename}")
+    try:
+        with open(input_path, "wb") as buffer:
+            shutil.copyfileobj(image.file, buffer)
+
+        output_filename = f"cam_{os.path.basename(input_path)}.png"
+        output_path = os.path.join(OUTPUT_DIR, output_filename)
+
+        cmd = [
+            sys.executable, "image_classification_explain.py",
+            "--model_checkpoint", model_checkpoint,
+            "--image_path", input_path,
+            "--output_path", output_path,
+        ]
+        process = subprocess.run(cmd, capture_output=True, text=True, check=True)
+
+        # The script emits a "RESULT_JSON:{...}" line with the prediction.
+        result = {}
+        for line in process.stdout.splitlines():
+            if line.startswith("RESULT_JSON:"):
+                result = json.loads(line[len("RESULT_JSON:"):])
+                break
+
+        return {
+            "prediction": result.get("prediction"),
+            "confidence": result.get("confidence"),
+            "output_url": f"/outputs/{output_filename}",
+        }
+    except subprocess.CalledProcessError as e:
+        return JSONResponse(status_code=500, content={"error": "Explanation script failed", "details": e.stderr})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+    finally:
+        # Clean up the uploaded input image; the overlay in OUTPUT_DIR is served.
+        if os.path.exists(input_path):
+            os.remove(input_path)
+
 @app.post("/inference/image-segmentation", summary="Run Image Segmentation Inference")
 async def run_semantic_segmentation_inference(
     model_checkpoint: str = Form(..., description="Path to the model checkpoint"),
