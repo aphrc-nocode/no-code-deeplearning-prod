@@ -1,0 +1,134 @@
+{
+  "/data/upload/{task_type}": {
+    "POST": [
+      "data_file",
+      "data_name"
+    ]
+  },
+  "/explain/image-classification": {
+    "POST": [
+      "image",
+      "model_checkpoint"
+    ]
+  },
+  "/inference/image-classification": {
+    "POST": [
+      "image",
+      "model_checkpoint"
+    ]
+  },
+  "/inference/image-segmentation": {
+    "POST": [
+      "image",
+      "model_checkpoint"
+    ]
+  },
+  "/inference/object-detection": {
+    "POST": [
+      "classes",
+      "image",
+      "imgsz",
+      "iou",
+      "max_det",
+      "model_checkpoint",
+      "threshold"
+    ]
+  },
+  "/train/image-classification": {
+    "POST": [
+      "brightness",
+      "contrast",
+      "dataset_id",
+      "dev_ratio",
+      "early_stopping_patience",
+      "early_stopping_threshold",
+      "enable_augmentation",
+      "epochs",
+      "eval_batch_size",
+      "flip_prob",
+      "gradient_accumulation_steps",
+      "gradient_checkpointing",
+      "is_presplit",
+      "learning_rate",
+      "max_image_size",
+      "model_checkpoint",
+      "optimizer",
+      "rotate_limit",
+      "run_name",
+      "scheduler",
+      "seed",
+      "train_batch_size",
+      "train_ratio",
+      "version",
+      "warmup_epochs",
+      "weight_decay"
+    ]
+  },
+  "/train/image-segmentation": {
+    "POST": [
+      "brightness",
+      "contrast",
+      "dataset_id",
+      "dev_ratio",
+      "early_stopping_patience",
+      "early_stopping_threshold",
+      "enable_augmentation",
+      "epochs",
+      "eval_batch_size",
+      "flip_prob",
+      "gradient_accumulation_steps",
+      "gradient_checkpointing",
+      "is_presplit",
+      "learning_rate",
+      "max_image_size",
+      "model_checkpoint",
+      "optimizer",
+      "rotate_limit",
+      "run_name",
+      "scheduler",
+      "seed",
+      "train_batch_size",
+      "train_ratio",
+      "version",
+      "warmup_epochs",
+      "weight_decay"
+    ]
+  },
+  "/train/object-detection": {
+    "POST": [
+      "brightness",
+      "contrast",
+      "dataset_id",
+      "early_stopping_patience",
+      "early_stopping_threshold",
+      "enable_augmentation",
+      "epochs",
+      "eval_batch_size",
+      "flip_prob",
+      "gradient_accumulation_steps",
+      "gradient_checkpointing",
+      "hsv_h",
+      "hsv_s",
+      "hsv_v",
+      "learning_rate",
+      "lr0",
+      "max_image_size",
+      "mixup",
+      "model_checkpoint",
+      "momentum",
+      "mosaic",
+      "optimizer",
+      "optimizer_hf",
+      "rotate_limit",
+      "run_name",
+      "scheduler_hf",
+      "seed",
+      "train_batch_size",
+      "version",
+      "warmup_epochs",
+      "warmup_epochs_hf",
+      "weight_decay_hf",
+      "weight_decay_yolo"
+    ]
+  }
+}

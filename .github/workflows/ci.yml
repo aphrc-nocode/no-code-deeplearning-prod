@@ -41,6 +41,25 @@ jobs:
       - name: Scan git history for secrets
         run: gitleaks detect --source . --redact --no-banner
 
+  contract:
+    name: API contract is fresh
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install import-only deps
+        run: pip install fastapi "uvicorn[standard]" python-multipart celery redis sqlalchemy pydantic psutil
+      - name: Regenerate the contract and verify it is committed
+        run: |
+          python scripts/dump_contract.py > /tmp/contract.json
+          if ! diff -u dl_api_contract.json /tmp/contract.json; then
+            echo "::error::dl_api_contract.json is stale. Regenerate it with: python scripts/dump_contract.py > dl_api_contract.json"
+            exit 1
+          fi
+
   smoke:
     name: Pipeline smoke test (CPU)
     runs-on: ubuntu-latest
